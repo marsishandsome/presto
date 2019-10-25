@@ -20,12 +20,15 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.pingcap.tikv.TiBatchWriteUtils;
+import com.google.common.collect.ImmutableList;
+import com.pingcap.tikv.TiSession;
+import com.pingcap.tikv.key.RowKey;
 import com.pingcap.tikv.meta.TiTableInfo;
-import com.pingcap.tikv.region.TiRegion;
+import com.pingcap.tikv.util.KeyRangeUtils;
+import com.pingcap.tikv.util.RangeSplitter;
+import org.tikv.kvproto.Coprocessor;
 
 import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -35,43 +38,50 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class TiDBSplitManager
-        implements ConnectorSplitManager
-{
-    private final String connectorId;
-    private final TiDBClient tiDBClient;
+    implements ConnectorSplitManager {
+  private final String connectorId;
+  private final TiDBClient tiDBClient;
 
-    @Inject
-    public TiDBSplitManager(TiDBConnectorId connectorId, TiDBClient tiDBClient)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.tiDBClient = requireNonNull(tiDBClient, "client is null");
+  @Inject
+  public TiDBSplitManager(TiDBConnectorId connectorId, TiDBClient tiDBClient) {
+    this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+    this.tiDBClient = requireNonNull(tiDBClient, "client is null");
+  }
+
+  @Override
+  public ConnectorSplitSource getSplits(
+      ConnectorTransactionHandle handle,
+      ConnectorSession session,
+      ConnectorTableLayoutHandle layout,
+      SplitSchedulingContext splitSchedulingContext) {
+    TiDBTableLayoutHandle layoutHandle = (TiDBTableLayoutHandle) layout;
+    TiDBTableHandle tableHandle = layoutHandle.getTable();
+    TiSession tiSession = tiDBClient.getTiSession();
+    TiTableInfo table = tiDBClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
+    // this can happen if table is removed during a query
+    checkState(table != null, "Table %s.%s no longer exists",
+        tableHandle.getSchemaName(), tableHandle.getTableName());
+
+    List<ConnectorSplit> splits = new ArrayList<>();
+
+    RowKey start = RowKey.createMin(table.getId());
+    RowKey end = RowKey.createBeyondMax(table.getId());
+    List<Coprocessor.KeyRange> keyRanges =
+        ImmutableList.of(KeyRangeUtils.makeCoprocRange(start.toByteString(), end.toByteString()));
+    List<RangeSplitter.RegionTask> regionTasks =
+        RangeSplitter.newSplitter(tiSession.getRegionManager()).splitRangeByRegion(keyRanges);
+
+    int i = 0;
+    for (RangeSplitter.RegionTask task : regionTasks) {
+      String taskStart = Base64.getEncoder().encodeToString(task.getRanges().get(0).getStart().toByteArray());
+      String taskEnd = Base64.getEncoder().encodeToString(task.getRanges().get(0).getEnd().toByteArray());
+      splits.add(new TiDBSplit(i, connectorId, tableHandle.getPdaddresses(),
+          tableHandle.getSchemaName(), tableHandle.getTableName(), table.getId(), taskStart, taskEnd));
+      i = i + 1;
     }
 
-    @Override
-    public ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle handle,
-            ConnectorSession session,
-            ConnectorTableLayoutHandle layout,
-            SplitSchedulingContext splitSchedulingContext)
-    {
-        TiDBTableLayoutHandle layoutHandle = (TiDBTableLayoutHandle) layout;
-        TiDBTableHandle tableHandle = layoutHandle.getTable();
-        TiTableInfo table = tiDBClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        // this can happen if table is removed during a query
-        checkState(table != null, "Table %s.%s no longer exists", tableHandle.getSchemaName(), tableHandle.getTableName());
+    Collections.shuffle(splits);
 
-        List<ConnectorSplit> splits = new ArrayList<>();
-        // TODO: mars
-        TiTableInfo tiTableInfo = tiDBClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        List<TiRegion> regionList = TiBatchWriteUtils.getRegionsByTable(tiDBClient.getTiSession(), tiTableInfo);
-
-        for(TiRegion region : regionList) {
-            String start = Base64.getEncoder().encodeToString(region.getStartKey().toByteArray());
-            String end = Base64.getEncoder().encodeToString(region.getEndKey().toByteArray());
-            splits.add(new TiDBSplit(connectorId, tableHandle.getPdaddresses(), tableHandle.getSchemaName(), tableHandle.getTableName(), tiTableInfo.getId(), start, end));
-        }
-        Collections.shuffle(splits);
-
-        return new FixedSplitSource(splits);
-    }
+    return new FixedSplitSource(splits);
+  }
 }

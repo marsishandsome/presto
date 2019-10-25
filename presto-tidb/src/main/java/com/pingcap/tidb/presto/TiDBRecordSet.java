@@ -56,9 +56,6 @@ public class TiDBRecordSet
         }
         this.columnTypes = types.build();
 
-        ByteString startKey = ByteString.copyFrom(Base64.getDecoder().decode(split.getStartKey()));
-        ByteString endKey = ByteString.copyFrom(Base64.getDecoder().decode(split.getEndKey()));
-
         TiConfiguration tiConfiguration = TiConfiguration.createDefault(split.getPdaddresses());
         TiSession tiSession = TiSession.getInstance(tiConfiguration);
         TiTableInfo tiTableInfo = tiSession.getCatalog().getTable(split.getSchemaName(), split.getTableName());
@@ -71,6 +68,10 @@ public class TiDBRecordSet
             requiredCols.add(col.getColumnName());
         }
 
+        if(requiredCols.isEmpty()) {
+            requiredCols.add(tiTableInfo.getColumns().get(0).getName());
+        }
+
         TiDAGRequest req = TiDAGRequest.Builder
             .newBuilder()
             .setFullTableScan(tiTableInfo)
@@ -78,12 +79,10 @@ public class TiDBRecordSet
             .setStartTs(startTs)
             .build(TiDAGRequest.PushDownType.NORMAL);
 
-        //List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(makeCoprocRange(startKey, endKey));
-        RowKey start = RowKey.createMin(split.getTableId());
-        RowKey end = RowKey.createBeyondMax(split.getTableId());
-        List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(
-            KeyRangeUtils.makeCoprocRange(start.toByteString(), end.toByteString()));
+        ByteString startKey = ByteString.copyFrom(Base64.getDecoder().decode(split.getStartKey()));
+        ByteString endKey = ByteString.copyFrom(Base64.getDecoder().decode(split.getEndKey()));
 
+        List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(KeyRangeUtils.makeCoprocRange(startKey, endKey));
         List<RangeSplitter.RegionTask> regionTasks =
             RangeSplitter.newSplitter(tiSession.getRegionManager()).splitRangeByRegion(keyRanges);
 
