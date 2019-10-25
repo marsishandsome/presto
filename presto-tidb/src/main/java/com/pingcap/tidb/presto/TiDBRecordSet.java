@@ -13,8 +13,10 @@
  */
 package com.pingcap.tidb.presto;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.pingcap.tikv.TiConfiguration;
@@ -48,6 +50,9 @@ public class TiDBRecordSet
     public TiDBRecordSet(TiDBSplit split, List<TiDBColumnHandle> columnHandles)
     {
         requireNonNull(split, "split is null");
+
+        // TODO: filter push down
+        TupleDomain<ColumnHandle> tupleDomain = split.getTupleDomain();
 
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
