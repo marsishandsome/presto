@@ -19,11 +19,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.pingcap.tikv.meta.TiTableInfo;
-import shade.com.google.protobuf.ByteString;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +40,8 @@ public class TiDBSplit
 
     private final TupleDomain<ColumnHandle> tupleDomain;
 
+    private final boolean enablePPD;
+
     private final boolean remotelyAccessible;
 
     @JsonCreator
@@ -56,7 +54,8 @@ public class TiDBSplit
             @JsonProperty("tableId") long tableId,
             @JsonProperty("startKey") String startKey,
             @JsonProperty("endKey") String endKey,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
+            @JsonProperty("enablePPD") boolean enablePPD)
     {
         this.idx = requireNonNull(idx, "idx is null");
         this.pdaddresses = requireNonNull(pdaddresses, "pdaddresses name is null");
@@ -70,6 +69,8 @@ public class TiDBSplit
         this.endKey = requireNonNull(endKey, "endKey is null");
 
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+
+        this.enablePPD = enablePPD;
 
         remotelyAccessible = true;
     }
@@ -120,6 +121,11 @@ public class TiDBSplit
     @JsonProperty
     public String getEndKey() {
         return endKey;
+    }
+
+    @JsonProperty
+    public boolean isEnablePPD() {
+        return enablePPD;
     }
 
     @Override
