@@ -16,7 +16,6 @@ package com.pingcap.tidb.presto;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.pingcap.tikv.operation.iterator.CoprocessIterator;
 import com.pingcap.tikv.row.Row;
@@ -31,8 +30,6 @@ import java.util.List;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeShortScaledValue;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 

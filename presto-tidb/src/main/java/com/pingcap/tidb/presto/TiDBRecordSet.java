@@ -66,8 +66,9 @@ public class TiDBRecordSet
         TiTimestamp startTs = tiSession.getTimestamp();
 
         ArrayList<String> requiredCols = new ArrayList<>();
-        for(TiColumnInfo col : tiTableInfo.getColumns()) {
-            requiredCols.add(col.getName());
+        for (TiDBColumnHandle col : columnHandles)
+        {
+            requiredCols.add(col.getColumnName());
         }
 
         TiDAGRequest req = TiDAGRequest.Builder
