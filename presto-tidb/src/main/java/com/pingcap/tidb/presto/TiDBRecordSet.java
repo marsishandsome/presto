@@ -19,12 +19,14 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.pingcap.tikv.TiConfiguration;
 import com.pingcap.tikv.TiSession;
+import com.pingcap.tikv.key.RowKey;
 import com.pingcap.tikv.meta.TiColumnInfo;
 import com.pingcap.tikv.meta.TiDAGRequest;
 import com.pingcap.tikv.meta.TiTableInfo;
 import com.pingcap.tikv.meta.TiTimestamp;
 import com.pingcap.tikv.operation.iterator.CoprocessIterator;
 import com.pingcap.tikv.row.Row;
+import com.pingcap.tikv.util.KeyRangeUtils;
 import com.pingcap.tikv.util.RangeSplitter;
 import org.tikv.kvproto.Coprocessor;
 import shade.com.google.protobuf.ByteString;
@@ -75,8 +77,14 @@ public class TiDBRecordSet
             .setStartTs(startTs)
             .build(TiDAGRequest.PushDownType.NORMAL);
 
-        List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(makeCoprocRange(startKey, endKey));
-        List<RangeSplitter.RegionTask> regionTasks = RangeSplitter.newSplitter(tiSession.getRegionManager()).splitRangeByRegion(keyRanges);
+        //List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(makeCoprocRange(startKey, endKey));
+        RowKey start = RowKey.createMin(split.getTableId());
+        RowKey end = RowKey.createBeyondMax(split.getTableId());
+        List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(
+            KeyRangeUtils.makeCoprocRange(start.toByteString(), end.toByteString()));
+
+        List<RangeSplitter.RegionTask> regionTasks =
+            RangeSplitter.newSplitter(tiSession.getRegionManager()).splitRangeByRegion(keyRanges);
 
         iterator = CoprocessIterator.getRowIterator(req,regionTasks, tiSession);
     }
