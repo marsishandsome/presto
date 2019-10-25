@@ -14,17 +14,27 @@
 package com.pingcap.tidb.presto;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.pingcap.tikv.operation.iterator.CoprocessIterator;
 import com.pingcap.tikv.row.Row;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.spi.type.Decimals.encodeShortScaledValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.math.RoundingMode.UNNECESSARY;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TiDBRecordCursor
         implements RecordCursor
@@ -78,12 +88,20 @@ public class TiDBRecordCursor
     @Override
     public long getLong(int field)
     {
-      Object o = row.get(field, null);
-      if(o instanceof BigDecimal) {
-        return ((BigDecimal) o).longValue();
-      } else {
-        return (long) row.get(field, null);
-      }
+        Type targetType = getType(field);
+        if (targetType instanceof DecimalType) {
+            BigDecimal bd = (BigDecimal) row.get(field, null);
+            // long decimal type should not reach here
+            return encodeShortScaledValue(bd, ((DecimalType) targetType).getScale());
+        } else if (targetType instanceof DateType) {
+            Date date = (Date) row.get(field, null);
+            // Convert it to a ~midnight in UTC.
+            long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, date.getTime());
+            // convert to days
+            return MILLISECONDS.toDays(utcMillis);
+        } else {
+            return (long)row.get(field, null);
+        }
     }
 
     @Override
@@ -95,6 +113,12 @@ public class TiDBRecordCursor
     @Override
     public Slice getSlice(int field)
     {
+        Type targetType = getType(field);
+        if (targetType instanceof DecimalType)
+        {
+            BigDecimal bd = (BigDecimal) row.get(field, null);
+            return encodeScaledValue(bd, ((DecimalType) targetType).getScale());
+        }
         String v = row.getString(field);
         return Slices.utf8Slice(v);
     }
