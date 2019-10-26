@@ -43,6 +43,7 @@ import shade.com.google.protobuf.ByteString;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.google.common.base.Preconditions.checkState;
@@ -55,22 +56,65 @@ public class TiDBRecordSet
     private final CoprocessIterator<Row> iterator;
 
     private Expression buildExpressionFromPredicate(RowExpression predicate) {
-        Expression expression = null;
+        Expression tiExpression = null;
         if (predicate instanceof SpecialFormExpression) {
+            String form = ((SpecialFormExpression) predicate).getForm().name();
+            List<Expression> expressions = ((SpecialFormExpression) predicate)
+                    .getArguments().stream()
+                    .map(each -> buildExpressionFromPredicate(each))
+                    .collect(Collectors.toList());
+            switch (form) {
+                case "AND": {
+                    for (Expression each : expressions) {
+                        if (tiExpression == null) {
+                            tiExpression = each;
+                        } else {
+                            tiExpression = LogicalBinaryExpression.and(each, tiExpression);
+                        }
+                    }
+                    break;
+                }
+                case "OR": {
+                    for (Expression each : expressions) {
+                        if (tiExpression == null) {
+                            tiExpression = each;
+                        } else {
+                            tiExpression = LogicalBinaryExpression.or(each, tiExpression);
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
         } else if (predicate instanceof CallExpression) {
             String displayName = ((CallExpression) predicate).getDisplayName();
             switch (displayName) {
-                case "LIKE":
+                case "LIKE": {
                     String rightValue = new String(((Slice) ((ConstantExpression) ((CallExpression) ((CallExpression) predicate).getArguments().get(1)).getArguments().get(0)).getValue()).getBytes());
                     String leftValue = ((VariableReferenceExpression) ((CallExpression) predicate).getArguments().get(0)).getName();
-                    expression = StringRegExpression.like(ColumnRef.create(leftValue), Constant.create(rightValue));
+                    tiExpression = StringRegExpression.like(ColumnRef.create(leftValue), Constant.create(rightValue));
                     break;
+                }
+                case "EQUAL": {
+                    String leftValue = ((VariableReferenceExpression) ((CallExpression) predicate).getArguments().get(0)).getName();
+                    ConstantExpression constant = ((ConstantExpression) ((CallExpression) predicate).getArguments().get(1));
+                    if (constant.getType() instanceof BigintType) {
+                        Long rightValue = (Long)((ConstantExpression) ((CallExpression) predicate).getArguments().get(1)).getValue();
+                        tiExpression = ComparisonBinaryExpression.equal(ColumnRef.create(leftValue), Constant.create(rightValue));
+                    }
+                    if (constant.getType() instanceof VarcharType) {
+                        String rightValue = new String(((Slice) ((ConstantExpression) ((CallExpression) predicate).getArguments().get(1)).getValue()).getBytes());
+                        tiExpression = ComparisonBinaryExpression.equal(ColumnRef.create(leftValue), Constant.create(rightValue));
+                    }
+                }
                 default:
                     break;
             }
         }
-        return expression;
+        return tiExpression;
     }
+
 
     public TiDBRecordSet(TiDBSplit split, List<TiDBColumnHandle> columnHandles) {
         requireNonNull(split, "split is null");
