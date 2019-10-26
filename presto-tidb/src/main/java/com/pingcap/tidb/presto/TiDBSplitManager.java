@@ -68,7 +68,7 @@ public class TiDBSplitManager
         for(TiRegion region : regionList) {
             String start = Base64.getEncoder().encodeToString(region.getStartKey().toByteArray());
             String end = Base64.getEncoder().encodeToString(region.getEndKey().toByteArray());
-            splits.add(new TiDBSplit(connectorId, tableHandle.getPdaddresses(), tableHandle.getSchemaName(), tableHandle.getTableName(), start, end));
+            splits.add(new TiDBSplit(connectorId, tableHandle.getPdaddresses(), tableHandle.getSchemaName(), tableHandle.getTableName(), tiTableInfo.getId(), start, end));
         }
         Collections.shuffle(splits);
 

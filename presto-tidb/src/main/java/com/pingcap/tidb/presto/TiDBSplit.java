@@ -34,6 +34,7 @@ public class TiDBSplit
     private final String pdaddresses;
     private final String schemaName;
     private final String tableName;
+    private final long tableId;
     private final String startKey;
     private final String endKey;
 
@@ -45,6 +46,7 @@ public class TiDBSplit
             @JsonProperty("pdaddresses") String pdaddresses,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("tableId") long tableId,
             @JsonProperty("startKey") String startKey,
             @JsonProperty("endKey") String endKey)
     {
@@ -52,6 +54,7 @@ public class TiDBSplit
         this.schemaName = requireNonNull(schemaName, "schema name is null");
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.tableName = requireNonNull(tableName, "table name is null");
+        this.tableId = requireNonNull(tableId, "table id is null");
 
         this.startKey = requireNonNull(startKey, "startKey is null");
 
@@ -81,6 +84,11 @@ public class TiDBSplit
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public long getTableId() {
+        return tableId;
     }
 
     @JsonProperty
