@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 import com.pingcap.tikv.TiSession;
 import com.pingcap.tikv.key.RowKey;
@@ -62,6 +63,8 @@ public class TiDBSplitManager
     checkState(table != null, "Table %s.%s no longer exists",
         tableHandle.getSchemaName(), tableHandle.getTableName());
 
+    RowExpression predicate = ((TiDBTableLayoutHandle) layout).getPredicate();
+
     List<ConnectorSplit> splits = new ArrayList<>();
 
     RowKey start = RowKey.createMin(table.getId());
@@ -78,7 +81,7 @@ public class TiDBSplitManager
         String taskEnd = Base64.getEncoder().encodeToString(keyRange.getEnd().toByteArray());
         splits.add(new TiDBSplit(i, connectorId, tableHandle.getPdaddresses(),
             tableHandle.getSchemaName(), tableHandle.getTableName(), table.getId(), taskStart,
-            taskEnd, layoutHandle.getTupleDomain(), tiDBClient.getConfig().isEnablePPD()));
+            taskEnd, layoutHandle.getTupleDomain(), tiDBClient.getConfig().isEnablePPD(), predicate));
         i = i + 1;
       }
     }

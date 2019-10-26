@@ -24,12 +24,25 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.Predicate;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.pingcap.tidb.presto.TiDBColumnHandle;
 import com.pingcap.tidb.presto.TiDBTableHandle;
 import com.pingcap.tidb.presto.TiDBTableLayoutHandle;
+import com.pingcap.tikv.expression.ColumnRef;
+import com.pingcap.tikv.expression.Constant;
+import com.pingcap.tikv.expression.Expression;
+import com.pingcap.tikv.expression.StringRegExpression;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -82,6 +95,7 @@ public class TiDBComputePushdown
             if (!(node.getSource() instanceof TableScanNode)) {
                 return node;
             }
+            RowExpression predicate = node.getPredicate();
 
             TableScanNode oldTableScanNode = (TableScanNode) node.getSource();
             TableHandle oldTableHandle = oldTableScanNode.getTable();
@@ -95,11 +109,11 @@ public class TiDBComputePushdown
             // TODO: FilterRowExpression is currently mocked, needs to be implemented
 
             TiDBTableLayoutHandle oldTableLayoutHandle = (TiDBTableLayoutHandle) oldTableHandle.getLayout().get();
-            // TODO: add pushdownResult to new TableLayoutHandle
+            // TODO: add pushdownResult and predicate to new TableLayoutHandle
             TiDBTableLayoutHandle newTableLayoutHandle = new TiDBTableLayoutHandle(
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),
-                "extra1");
+                    predicate);
 
             TableHandle tableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),

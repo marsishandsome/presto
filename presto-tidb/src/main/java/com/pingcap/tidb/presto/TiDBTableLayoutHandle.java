@@ -16,8 +16,10 @@ package com.pingcap.tidb.presto;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.pingcap.tikv.expression.Expression;
 
 import java.util.Objects;
 
@@ -26,21 +28,21 @@ public class TiDBTableLayoutHandle
 {
     private final TiDBTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
-    private final String extra;
+    private final RowExpression predicate;
 
     @JsonCreator
     public TiDBTableLayoutHandle(@JsonProperty("table") TiDBTableHandle table,
                                  @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-                                 @JsonProperty("extra") String extra)
+                                 @JsonProperty("predicate") RowExpression predicate)
     {
         this.table = table;
         this.tupleDomain = tupleDomain;
-        this.extra = extra;
+        this.predicate = predicate;
     }
 
     @JsonProperty
-    public String getExtra() {
-        return extra;
+    public RowExpression getPredicate() {
+        return predicate;
     }
 
     @JsonProperty
