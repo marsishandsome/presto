@@ -1,31 +1,18 @@
-# Presto [![Build Status](https://travis-ci.org/prestodb/presto.svg?branch=master)](https://travis-ci.org/prestodb/presto)
+# TiPresto: TiDB Hackathon 2019
 
-Presto is a distributed SQL query engine for big data.
+TiPresto = Presto + TiDB
 
-See the [User Manual](https://prestodb.github.io/docs/current/) for deployment instructions and end user documentation.
+## Compile
+```
+./mvnw clean install -DskipTests
+```
 
-## Requirements
+## Compile TiDB Connector
+```
+./mvnw clean install -DskipTests -pl presto-tidb
+```
 
-* Mac OS X or Linux
-* Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
-* Maven 3.3.9+ (for building)
-* Python 2.4+ (for running with the launcher script)
-
-## Building Presto
-
-Presto is a standard Maven project. Simply run the following command from the project root directory:
-
-    ./mvnw clean install
-
-On the first build, Maven will download all the dependencies from the internet and cache them in the local repository (`~/.m2/repository`), which can take a considerable amount of time. Subsequent builds will be faster.
-
-Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
-
-    ./mvnw clean install -DskipTests
-
-## Running Presto in your IDE
-
-### Overview
+## Running Presto in IntellijIDEA
 
 After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
 
@@ -44,64 +31,92 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
-Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
+## Debug in CLI
 
-    -Dhive.metastore.uri=thrift://localhost:9083
+```
+./presto-cli-0.227-executable.jar --server localhost:8080
+```
 
-### Using SOCKS for Hive or HDFS
+```
+presto> show catalogs;
+ Catalog
+---------
+ system  
+ tidb    
+(2 rows)
 
-If your Hive metastore or HDFS cluster is not directly accessible to your local machine, you can use SSH port forwarding to access it. Setup a dynamic SOCKS proxy with SSH listening on local port 1080:
+Query 20191021_163747_00001_jdrew, FINISHED, 1 node
+Splits: 19 total, 19 done (100.00%)
+0:01 [0 rows, 0B] [0 rows/s, 0B/s]
+```
 
-    ssh -v -N -D 1080 server
+```
+presto> show schemas from tidb;
+             Schema             
+--------------------------------
+ batch_write_test_index         
+ batch_write_test_pk            
+ information_schema             
+ multi_column_pk_data_type_test
+ mysql                          
+ resolvelock_test               
+ test                           
+ tispark_test                   
+ tpch_test                      
+(9 rows)
 
-Then add the following to the list of VM options:
+Query 20191021_163809_00002_jdrew, FINISHED, 1 node
+Splits: 19 total, 19 done (100.00%)
+0:03 [9 rows, 180B] [3 rows/s, 60B/s]
+```
 
-    -Dhive.metastore.thrift.client.socks-proxy=localhost:1080
+```
+presto> SHOW TABLES FROM  tidb.tpch_test;
+  Table   
+----------
+ customer
+ lineitem
+ nation   
+ orders   
+ part     
+ partsupp
+ region   
+ supplier
+(8 rows)
 
-### Running the CLI
+Query 20191021_163829_00003_jdrew, FINISHED, 1 node
+Splits: 19 total, 19 done (100.00%)
+0:00 [8 rows, 206B] [23 rows/s, 609B/s]
+```
 
-Start the CLI to connect to the server and run SQL queries:
+```
+presto> SHOW COLUMNS FROM tidb.tpch_test.customer;
+    Column    |     Type      | Extra | Comment
+--------------+---------------+-------+---------
+ c_custkey    | bigint        |       |         
+ c_name       | varchar       |       |         
+ c_address    | varchar       |       |         
+ c_nationkey  | bigint        |       |         
+ c_phone      | varchar       |       |         
+ c_acctbal    | decimal(15,2) |       |         
+ c_mktsegment | varchar       |       |         
+ c_comment    | varchar       |       |         
+(8 rows)
 
-    presto-cli/target/presto-cli-*-executable.jar
+Query 20191021_163849_00004_jdrew, FINISHED, 1 node
+Splits: 19 total, 19 done (100.00%)
+0:00 [8 rows, 580B] [33 rows/s, 2.35KB/s]
+```
 
-Run a query to see the nodes in the cluster:
+```
+presto> select * from tidb.tpch_test.customer limit 2;
+ c_custkey |       c_name       |           c_address            | c_nationkey |     c_phone     | c_acctbal | c_mktsegment |                            c_comment                            
+-----------+--------------------+--------------------------------+-------------+-----------------+-----------+--------------+-----------------------------------------------------------------
+         1 | Customer#000000001 | IVhzIApeRb ot,c,E              |          15 | 25-989-741-2988 | 7.11      | BUILDING     | to the even, regular platelets. regular, ironic epitaphs nag e  
+         2 | Customer#000000002 | XSTf4,NCwDVaWNe6tEgvwfmRchLXak |          13 | 23-768-687-3665 | 1.21      | AUTOMOBILE   | l accounts. blithely ironic theodolites integrate boldly: caref
+(2 rows)
 
-    SELECT * FROM system.runtime.nodes;
-
-In the sample configuration, the Hive connector is mounted in the `hive` catalog, so you can run the following queries to show the tables in the Hive database `default`:
-
-    SHOW TABLES FROM hive.default;
-
-## Code Style
-
-We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
-
-* Alphabetize sections in the documentation source files (both in table of contents files and other regular documentation files). In general, alphabetize methods/variables/sections if such ordering already exists in the surrounding code.
-* When appropriate, use the Java 8 stream API. However, note that the stream implementation does not perform well so avoid using it in inner loops or otherwise performance sensitive sections.
-* Categorize errors when throwing exceptions. For example, PrestoException takes an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`. This categorization lets you generate reports so you can monitor the frequency of various failures.
-* Ensure that all files have the appropriate license header; you can generate the license by running `mvn license:format`.
-* Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
-* Avoid using the ternary operator except for trivial expressions.
-* Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
-* When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-## Building the Web UI
-
-The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src install
-
-If no Javascript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src run package
-
-To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when changes to source files are detected:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src run watch
-
-To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
-
-## Release Notes
-
-When authoring a pull request, the PR description should include its relevant release notes.
-Follow [Release Notes Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) when authoring release notes. 
+Query 20191021_163916_00005_jdrew, FINISHED, 1 node
+Splits: 18 total, 18 done (100.00%)
+0:00 [150 rows, 100B] [694 rows/s, 463B/s]
+```
