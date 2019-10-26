@@ -26,13 +26,21 @@ public class TiDBTableLayoutHandle
 {
     private final TiDBTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private final String extra;
 
     @JsonCreator
     public TiDBTableLayoutHandle(@JsonProperty("table") TiDBTableHandle table,
-                                 @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+                                 @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
+                                 @JsonProperty("extra") String extra)
     {
         this.table = table;
         this.tupleDomain = tupleDomain;
+        this.extra = extra;
+    }
+
+    @JsonProperty
+    public String getExtra() {
+        return extra;
     }
 
     @JsonProperty

@@ -98,7 +98,8 @@ public class TiDBComputePushdown
             // TODO: add pushdownResult to new TableLayoutHandle
             TiDBTableLayoutHandle newTableLayoutHandle = new TiDBTableLayoutHandle(
                     oldConnectorTable,
-                    oldTableLayoutHandle.getTupleDomain());
+                    oldTableLayoutHandle.getTupleDomain(),
+                "extra1");
 
             TableHandle tableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
