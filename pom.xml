@@ -96,6 +96,7 @@
         <module>presto-hive-hadoop2</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
+	    <module>presto-tidb</module>
         <module>presto-local-file</module>
         <module>presto-tpch</module>
         <module>presto-tpcds</module>
@@ -237,6 +238,13 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-example-http</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tidb</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
