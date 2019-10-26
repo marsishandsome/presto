@@ -20,15 +20,28 @@ import javax.validation.constraints.NotNull;
 public class TiDBConfig {
 
   private String pdaddresses;
+  private boolean enablePPD;
 
   @NotNull
   public String getPdaddresses() {
     return pdaddresses;
   }
 
+  @NotNull
+  public boolean isEnablePPD()
+  {
+    return enablePPD;
+  }
+
   @Config("spark.tispark.pd.addresses")
   public TiDBConfig setPdaddresses(String pdaddresses) {
     this.pdaddresses = pdaddresses;
+    return this;
+  }
+
+  @Config("tipresto.enable.ppd")
+  public TiDBConfig setEnablePPD(boolean enablePPD) {
+    this.enablePPD = enablePPD;
     return this;
   }
 }

@@ -77,7 +77,8 @@ public class TiDBSplitManager
         String taskStart = Base64.getEncoder().encodeToString(keyRange.getStart().toByteArray());
         String taskEnd = Base64.getEncoder().encodeToString(keyRange.getEnd().toByteArray());
         splits.add(new TiDBSplit(i, connectorId, tableHandle.getPdaddresses(),
-            tableHandle.getSchemaName(), tableHandle.getTableName(), table.getId(), taskStart, taskEnd, layoutHandle.getTupleDomain()));
+            tableHandle.getSchemaName(), tableHandle.getTableName(), table.getId(), taskStart,
+            taskEnd, layoutHandle.getTupleDomain(), tiDBClient.getConfig().isEnablePPD()));
         i = i + 1;
       }
     }
