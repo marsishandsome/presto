@@ -30,11 +30,13 @@ import static java.util.Objects.requireNonNull;
 public class TiDBSplit
         implements ConnectorSplit
 {
+    private final long idx;
     private final String connectorId;
     private final String pdaddresses;
     private final String schemaName;
     private final String tableName;
     private final long tableId;
+
     private final String startKey;
     private final String endKey;
 
@@ -42,6 +44,7 @@ public class TiDBSplit
 
     @JsonCreator
     public TiDBSplit(
+            @JsonProperty("idx") long idx,
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("pdaddresses") String pdaddresses,
             @JsonProperty("schemaName") String schemaName,
@@ -50,6 +53,7 @@ public class TiDBSplit
             @JsonProperty("startKey") String startKey,
             @JsonProperty("endKey") String endKey)
     {
+        this.idx = requireNonNull(idx, "idx is null");
         this.pdaddresses = requireNonNull(pdaddresses, "pdaddresses name is null");
         this.schemaName = requireNonNull(schemaName, "schema name is null");
         this.connectorId = requireNonNull(connectorId, "connector id is null");
@@ -61,6 +65,10 @@ public class TiDBSplit
         this.endKey = requireNonNull(endKey, "endKey is null");
 
         remotelyAccessible = true;
+    }
+
+    public long getIdx() {
+        return idx;
     }
 
     @JsonProperty
