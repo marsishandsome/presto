@@ -85,7 +85,7 @@ public class TiDBMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         TiDBTableHandle tableHandle = (TiDBTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new TiDBTableLayoutHandle(tableHandle, constraint.getSummary()));
+        ConnectorTableLayout layout = new ConnectorTableLayout(new TiDBTableLayoutHandle(tableHandle, constraint.getSummary(), "extra2"));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
