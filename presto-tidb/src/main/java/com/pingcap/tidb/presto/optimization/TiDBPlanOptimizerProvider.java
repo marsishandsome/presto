@@ -15,13 +15,10 @@ package com.pingcap.tidb.presto.optimization;
 
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
-import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 import java.util.Set;
-
-import static java.util.Objects.requireNonNull;
 
 public class TiDBPlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider {
