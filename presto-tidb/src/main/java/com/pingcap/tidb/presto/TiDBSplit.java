@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -44,6 +45,8 @@ public class TiDBSplit
 
     private final boolean remotelyAccessible;
 
+    private final RowExpression predicate;
+
     @JsonCreator
     public TiDBSplit(
             @JsonProperty("idx") long idx,
@@ -55,7 +58,8 @@ public class TiDBSplit
             @JsonProperty("startKey") String startKey,
             @JsonProperty("endKey") String endKey,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("enablePPD") boolean enablePPD)
+            @JsonProperty("enablePPD") boolean enablePPD,
+            @JsonProperty("predicate") RowExpression predicate)
     {
         this.idx = requireNonNull(idx, "idx is null");
         this.pdaddresses = requireNonNull(pdaddresses, "pdaddresses name is null");
@@ -71,6 +75,8 @@ public class TiDBSplit
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
 
         this.enablePPD = enablePPD;
+
+        this.predicate = predicate;
 
         remotelyAccessible = true;
     }
@@ -122,6 +128,9 @@ public class TiDBSplit
     public String getEndKey() {
         return endKey;
     }
+
+    @JsonProperty
+    public RowExpression getPredicate() {return predicate;}
 
     @JsonProperty
     public boolean isEnablePPD() {

@@ -19,6 +19,11 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.*;
 import com.google.common.collect.ImmutableList;
 import com.pingcap.tikv.TiConfiguration;
@@ -44,14 +49,30 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class TiDBRecordSet
-        implements RecordSet
-{
+        implements RecordSet {
     private final List<TiDBColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final CoprocessIterator<Row> iterator;
 
-    public TiDBRecordSet(TiDBSplit split, List<TiDBColumnHandle> columnHandles)
-    {
+    private Expression buildExpressionFromPredicate(RowExpression predicate) {
+        Expression expression = null;
+        if (predicate instanceof SpecialFormExpression) {
+        } else if (predicate instanceof CallExpression) {
+            String displayName = ((CallExpression) predicate).getDisplayName();
+            switch (displayName) {
+                case "LIKE":
+                    String rightValue = new String(((Slice) ((ConstantExpression) ((CallExpression) ((CallExpression) predicate).getArguments().get(1)).getArguments().get(0)).getValue()).getBytes());
+                    String leftValue = ((VariableReferenceExpression) ((CallExpression) predicate).getArguments().get(0)).getName();
+                    expression = StringRegExpression.like(ColumnRef.create(leftValue), Constant.create(rightValue));
+                    break;
+                default:
+                    break;
+            }
+        }
+        return expression;
+    }
+
+    public TiDBRecordSet(TiDBSplit split, List<TiDBColumnHandle> columnHandles) {
         requireNonNull(split, "split is null");
 
         // TODO: filter push down
@@ -71,12 +92,11 @@ public class TiDBRecordSet
         TiTimestamp startTs = tiSession.getTimestamp();
 
         ArrayList<String> requiredCols = new ArrayList<>();
-        for (TiDBColumnHandle col : columnHandles)
-        {
+        for (TiDBColumnHandle col : columnHandles) {
             requiredCols.add(col.getColumnName());
         }
 
-        if(requiredCols.isEmpty()) {
+        if (requiredCols.isEmpty()) {
             requiredCols.add(tiTableInfo.getColumns().get(0).getName());
         }
 
@@ -102,6 +122,15 @@ public class TiDBRecordSet
         if (filters.size() > 0)
             builder.addFilter(combineExpressions(filters, LogicalBinaryExpression.Type.AND));
 
+        try {
+            Expression expression = buildExpressionFromPredicate(split.getPredicate());
+            if (expression != null) {
+                builder.addFilter(expression);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         TiDAGRequest req = builder.build(TiDAGRequest.PushDownType.NORMAL);
 
         ByteString startKey = ByteString.copyFrom(Base64.getDecoder().decode(split.getStartKey()));
@@ -109,81 +138,66 @@ public class TiDBRecordSet
 
         List<Coprocessor.KeyRange> keyRanges = ImmutableList.of(KeyRangeUtils.makeCoprocRange(startKey, endKey));
         List<RangeSplitter.RegionTask> regionTasks =
-            RangeSplitter.newSplitter(tiSession.getRegionManager()).splitRangeByRegion(keyRanges);
+                RangeSplitter.newSplitter(tiSession.getRegionManager()).splitRangeByRegion(keyRanges);
 
-        iterator = CoprocessIterator.getRowIterator(req,regionTasks, tiSession);
+        iterator = CoprocessIterator.getRowIterator(req, regionTasks, tiSession);
     }
 
-    private Object convertToTiDBValue(Object value, Type type)
-    {
-        if (type instanceof DateType)
-        {
+    private Object convertToTiDBValue(Object value, Type type) {
+        if (type instanceof DateType) {
             Long dateInDay = (Long) value;
             return new java.sql.Date(dateInDay * 24 * 3600 * 1000);
         }
-        if (type instanceof VarcharType || type instanceof CharType)
-        {
+        if (type instanceof VarcharType || type instanceof CharType) {
             Slice s = (Slice) value;
             return s.toStringUtf8();
         }
-        if (type instanceof DecimalType)
-        {
-            if (((DecimalType) type).isShort())
-            {
+        if (type instanceof DecimalType) {
+            if (((DecimalType) type).isShort()) {
                 Long val = (Long) value;
                 return new BigDecimal(BigInteger.valueOf(val), ((DecimalType) type).getScale());
-            }
-            else
-            {
+            } else {
                 Slice val = (Slice) value;
                 return new BigDecimal(decodeUnscaledValue(val), ((DecimalType) type).getScale());
             }
         }
         return value;
     }
-    private Expression getComparisonBinaryExpr(Expression col_ref, Object value, Type type, ComparisonBinaryExpression.Type funcType)
-    {
+
+    private Expression getComparisonBinaryExpr(Expression col_ref, Object value, Type type, ComparisonBinaryExpression.Type funcType) {
         Object tidbValue = convertToTiDBValue(value, type);
         Expression const_value = Constant.create(tidbValue);
         return new ComparisonBinaryExpression(funcType, col_ref, const_value);
     }
 
-    private Expression combineExpressions(List<Expression> expressions, LogicalBinaryExpression.Type type)
-    {
+    private Expression combineExpressions(List<Expression> expressions, LogicalBinaryExpression.Type type) {
         Expression ret = expressions.get(0);
-        for (int i = 1; i < expressions.size(); i++)
-        {
+        for (int i = 1; i < expressions.size(); i++) {
             ret = new LogicalBinaryExpression(type, ret, expressions.get(i));
         }
         return ret;
     }
 
-    private Expression getExprFromDomain(String colname, Type type, Domain domain)
-    {
+    private Expression getExprFromDomain(String colname, Type type, Domain domain) {
         Expression col_ref = ColumnRef.create(colname);
-        if (domain.getValues().isNone())
-        {
+        if (domain.getValues().isNone()) {
             return new IsNull(col_ref);
         }
-        if (domain.getValues().isAll())
-        {
+        if (domain.getValues().isAll()) {
             Expression is_null = new IsNull(col_ref);
             return new Not(is_null);
         }
 
         List<Expression> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges())
-        {
+        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll());
             if (range.isSingleValue()) {
                 singleValues.add(range.getLow().getValue());
             } else {
                 List<Expression> rangeConjuncts = new ArrayList<>();
-                if (!range.getLow().isLowerUnbounded())
-                {
-                    switch (range.getLow().getBound())
-                    {
+                if (!range.getLow().isLowerUnbounded()) {
+                    switch (range.getLow().getBound()) {
                         case ABOVE:
                             rangeConjuncts.add(getComparisonBinaryExpr(col_ref, range.getLow().getValue(), type,
                                     ComparisonBinaryExpression.Type.GREATER_THAN));
@@ -198,10 +212,8 @@ public class TiDBRecordSet
                             throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
                     }
                 }
-                if (!range.getHigh().isUpperUnbounded())
-                {
-                    switch (range.getHigh().getBound())
-                    {
+                if (!range.getHigh().isUpperUnbounded()) {
+                    switch (range.getHigh().getBound()) {
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
@@ -220,8 +232,7 @@ public class TiDBRecordSet
                 disjuncts.add(combineExpressions(rangeConjuncts, LogicalBinaryExpression.Type.AND));
             }
         }
-        for (Object o : singleValues)
-        {
+        for (Object o : singleValues) {
             // todo support In expression in tikv client
             disjuncts.add(getComparisonBinaryExpr(col_ref, o, type, ComparisonBinaryExpression.Type.EQUAL));
         }
@@ -234,14 +245,12 @@ public class TiDBRecordSet
     }
 
     @Override
-    public List<Type> getColumnTypes()
-    {
+    public List<Type> getColumnTypes() {
         return columnTypes;
     }
 
     @Override
-    public RecordCursor cursor()
-    {
+    public RecordCursor cursor() {
         return new TiDBRecordCursor(columnHandles, iterator);
     }
 }
