@@ -73,13 +73,14 @@ public class TiDBSplitManager
 
     int i = 0;
     for (RangeSplitter.RegionTask task : regionTasks) {
-      String taskStart = Base64.getEncoder().encodeToString(task.getRanges().get(0).getStart().toByteArray());
-      String taskEnd = Base64.getEncoder().encodeToString(task.getRanges().get(0).getEnd().toByteArray());
-      splits.add(new TiDBSplit(i, connectorId, tableHandle.getPdaddresses(),
-          tableHandle.getSchemaName(), tableHandle.getTableName(), table.getId(), taskStart, taskEnd));
-      i = i + 1;
+      for(Coprocessor.KeyRange keyRange : task.getRanges()) {
+        String taskStart = Base64.getEncoder().encodeToString(keyRange.getStart().toByteArray());
+        String taskEnd = Base64.getEncoder().encodeToString(keyRange.getEnd().toByteArray());
+        splits.add(new TiDBSplit(i, connectorId, tableHandle.getPdaddresses(),
+            tableHandle.getSchemaName(), tableHandle.getTableName(), table.getId(), taskStart, taskEnd));
+        i = i + 1;
+      }
     }
-
     Collections.shuffle(splits);
 
     return new FixedSplitSource(splits);
