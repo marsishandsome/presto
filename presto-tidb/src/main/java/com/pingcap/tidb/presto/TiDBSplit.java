@@ -13,8 +13,10 @@
  */
 package com.pingcap.tidb.presto;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +42,8 @@ public class TiDBSplit
     private final String startKey;
     private final String endKey;
 
+    private final TupleDomain<ColumnHandle> tupleDomain;
+
     private final boolean remotelyAccessible;
 
     @JsonCreator
@@ -51,7 +55,8 @@ public class TiDBSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("startKey") String startKey,
-            @JsonProperty("endKey") String endKey)
+            @JsonProperty("endKey") String endKey,
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
     {
         this.idx = requireNonNull(idx, "idx is null");
         this.pdaddresses = requireNonNull(pdaddresses, "pdaddresses name is null");
@@ -64,9 +69,17 @@ public class TiDBSplit
 
         this.endKey = requireNonNull(endKey, "endKey is null");
 
+        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+
         remotelyAccessible = true;
     }
 
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getTupleDomain() {
+        return tupleDomain;
+    }
+
+    @JsonProperty
     public long getIdx() {
         return idx;
     }

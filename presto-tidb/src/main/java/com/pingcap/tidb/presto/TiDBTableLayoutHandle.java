@@ -13,7 +13,9 @@
  */
 package com.pingcap.tidb.presto;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,17 +25,24 @@ public class TiDBTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final TiDBTableHandle table;
+    private final TupleDomain<ColumnHandle> tupleDomain;
 
     @JsonCreator
-    public TiDBTableLayoutHandle(@JsonProperty("table") TiDBTableHandle table)
+    public TiDBTableLayoutHandle(@JsonProperty("table") TiDBTableHandle table,
+                                 @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
     {
         this.table = table;
+        this.tupleDomain = tupleDomain;
     }
 
     @JsonProperty
     public TiDBTableHandle getTable()
     {
         return table;
+    }
+
+    public TupleDomain<ColumnHandle> getTupleDomain() {
+        return tupleDomain;
     }
 
     @Override
