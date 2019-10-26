@@ -15,10 +15,12 @@ package com.pingcap.tidb.presto;
 
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.pingcap.tidb.presto.optimization.TiDBPlanOptimizerProvider;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
@@ -35,18 +37,21 @@ public class TiDBConnector
     private final TiDBMetadata metadata;
     private final TiDBSplitManager splitManager;
     private final TiDBRecordSetProvider recordSetProvider;
+    private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     @Inject
     public TiDBConnector(
             LifeCycleManager lifeCycleManager,
             TiDBMetadata metadata,
             TiDBSplitManager splitManager,
-            TiDBRecordSetProvider recordSetProvider)
+            TiDBRecordSetProvider recordSetProvider,
+            TiDBPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -71,6 +76,11 @@ public class TiDBConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider() {
+        return planOptimizerProvider;
     }
 
     @Override

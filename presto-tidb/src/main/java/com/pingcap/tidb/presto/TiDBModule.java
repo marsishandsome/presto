@@ -13,6 +13,7 @@
  */
 package com.pingcap.tidb.presto;
 
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.pingcap.tidb.presto.optimization.TiDBPlanOptimizerProvider;
 
 import javax.inject.Inject;
 
@@ -51,6 +53,8 @@ public class TiDBModule
         binder.bind(TiDBClient.class).in(Scopes.SINGLETON);
         binder.bind(TiDBSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(TiDBRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(TiDBPlanOptimizerProvider.class).in(Scopes.SINGLETON);
+
         configBinder(binder).bindConfig(TiDBConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
